@@ -13,12 +13,22 @@ def build_optimizer(model, opts):
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer
-                    if not any(nd in n for nd in no_decay)],
-         'weight_decay': opts.weight_decay},
-        {'params': [p for n, p in param_optimizer
-                    if any(nd in n for nd in no_decay)],
-         'weight_decay': 0.0}
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if all(nd not in n for nd in no_decay)
+            ],
+            'weight_decay': opts.weight_decay,
+        },
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if any(nd in n for nd in no_decay)
+            ],
+            'weight_decay': 0.0,
+        },
     ]
 
     # currently Adam only
@@ -30,6 +40,6 @@ def build_optimizer(model, opts):
         OptimCls = AdamW
     else:
         raise ValueError('invalid optimizer')
-    optimizer = OptimCls(optimizer_grouped_parameters,
-                         lr=opts.learning_rate, betas=opts.betas)
-    return optimizer
+    return OptimCls(
+        optimizer_grouped_parameters, lr=opts.learning_rate, betas=opts.betas
+    )

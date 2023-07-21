@@ -34,9 +34,9 @@ def main(opts):
     device = torch.device("cuda", hvd.local_rank())
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     hps_file = f'{opts.output_dir}/log/hps.json'
     model_opts = Struct(json.load(open(hps_file)))
@@ -86,7 +86,7 @@ def main(opts):
     if opts.save_logits:
         all_logits = {}
         for id2logit in all_gather_list(logits):
-            all_logits.update(id2logit)
+            all_logits |= id2logit
     if hvd.rank() == 0:
         with open(f'{result_dir}/'
                   f'results_{opts.checkpoint}_all.json', 'w') as f:
@@ -110,8 +110,10 @@ def evaluate(model, eval_loader, label2ans, save_logits=False):
         answers = [label2ans[i]
                    for i in scores.max(dim=-1, keepdim=False
                                        )[1].cpu().tolist()]
-        for qid, answer in zip(qids, answers):
-            results.append({'answer': answer, 'question_id': int(qid)})
+        results.extend(
+            {'answer': answer, 'question_id': int(qid)}
+            for qid, answer in zip(qids, answers)
+        )
         if save_logits:
             scores = scores.cpu()
             for i, qid in enumerate(qids):
@@ -135,8 +137,7 @@ def compute_score_with_logits(logits, labels):
     logits = torch.max(logits, 1)[1]  # argmax
     one_hots = torch.zeros(*labels.size(), device=labels.device)
     one_hots.scatter_(1, logits.view(-1, 1), 1)
-    scores = (one_hots * labels)
-    return scores
+    return (one_hots * labels)
 
 
 if __name__ == "__main__":

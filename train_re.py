@@ -69,20 +69,36 @@ def build_optimizer(model, opts):
     param_top = [(n, p) for n, p in model.named_parameters()
                  if 're_output' in n]
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_top
-                    if not any(nd in n for nd in no_decay)],
-         'lr': opts.learning_rate,
-         'weight_decay': opts.weight_decay},
-        {'params': [p for n, p in param_top
-                    if any(nd in n for nd in no_decay)],
-         'lr': opts.learning_rate,
-         'weight_decay': 0.0},
-        {'params': [p for n, p in param_optimizer
-                    if not any(nd in n for nd in no_decay)],
-         'weight_decay': opts.weight_decay},
-        {'params': [p for n, p in param_optimizer
-                    if any(nd in n for nd in no_decay)],
-         'weight_decay': 0.0}
+        {
+            'params': [
+                p for n, p in param_top if all(nd not in n for nd in no_decay)
+            ],
+            'lr': opts.learning_rate,
+            'weight_decay': opts.weight_decay,
+        },
+        {
+            'params': [
+                p for n, p in param_top if any(nd in n for nd in no_decay)
+            ],
+            'lr': opts.learning_rate,
+            'weight_decay': 0.0,
+        },
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if all(nd not in n for nd in no_decay)
+            ],
+            'weight_decay': opts.weight_decay,
+        },
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if any(nd in n for nd in no_decay)
+            ],
+            'weight_decay': 0.0,
+        },
     ]
 
     # currently Adam only
@@ -94,9 +110,9 @@ def build_optimizer(model, opts):
         OptimCls = AdamW
     else:
         raise ValueError('invalid optimizer')
-    optimizer = OptimCls(optimizer_grouped_parameters,
-                         lr=opts.learning_rate, betas=opts.betas)
-    return optimizer
+    return OptimCls(
+        optimizer_grouped_parameters, lr=opts.learning_rate, betas=opts.betas
+    )
 
 
 def main(opts):
@@ -106,14 +122,14 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.gradient_accumulation_steps < 1:
-        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, "
-                         "should be >= 1".format(
-                            opts.gradient_accumulation_steps))
+        raise ValueError(
+            f"Invalid gradient_accumulation_steps parameter: {opts.gradient_accumulation_steps}, should be >= 1"
+        )
 
     set_random_seed(opts.seed)
 
@@ -128,11 +144,7 @@ def main(opts):
                                        ReEvalDataset, re_eval_collate, opts)
 
     # Prepare model
-    if opts.checkpoint:
-        checkpoint = torch.load(opts.checkpoint)
-    else:
-        checkpoint = {}
-
+    checkpoint = torch.load(opts.checkpoint) if opts.checkpoint else {}
     all_dbs = [opts.train_txt_db, opts.val_txt_db]
     toker = json.load(open(f'{all_dbs[0]}/meta.json'))['toker']
     assert all(toker == json.load(open(f'{db}/meta.json'))['toker']
@@ -214,9 +226,9 @@ def main(opts):
                 # learning rate scheduling
                 lr_this_step = get_lr_sched(global_step, opts)
                 for i, param_group in enumerate(optimizer.param_groups):
-                    if i == 0 or i == 1:
+                    if i in [0, 1]:
                         param_group['lr'] = lr_this_step * opts.lr_mul
-                    elif i == 2 or i == 3:
+                    elif i in [2, 3]:
                         param_group['lr'] = lr_this_step
                     else:
                         raise ValueError()
@@ -290,7 +302,7 @@ def validate(model, val_dataloader):
     n_ex = 0
     st = time()
     predictions = {}
-    for i, batch in enumerate(val_dataloader):
+    for batch in val_dataloader:
         # inputs
         (tgt_box_list, obj_boxes_list, sent_ids) = (
             batch['tgt_box'], batch['obj_boxes'], batch['sent_ids'])
@@ -445,13 +457,14 @@ if __name__ == '__main__':
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     # options safe guard
     main(args)

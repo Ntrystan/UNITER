@@ -67,29 +67,23 @@ class UniterForReferringExpressionComprehension(UniterPreTrainedModel):
         scores = self.re_output(sequence_output).squeeze(2)
         scores = scores.masked_fill(obj_masks, -1e4)  # mask out non-objects
 
-        if compute_loss:
-            targets = batch["targets"]
-            if self.loss == 'cls':
-                ce_loss = self.crit(scores, targets.squeeze(-1))  # (n, ) as no reduction
-                return ce_loss
-            else:
-                # ranking
-                _n = len(num_bbs)
-                # positive (target)
-                pos_ix = targets
-                pos_sc = scores.gather(1, pos_ix.view(_n, 1))  # (n, 1)
-                pos_sc = torch.sigmoid(pos_sc).view(-1)  # (n, ) sc[0, 1]
-                # negative
-                neg_ix = self.sample_neg_ix(scores, targets, num_bbs)
-                neg_sc = scores.gather(1, neg_ix.view(_n, 1))  # (n, 1)
-                neg_sc = torch.sigmoid(neg_sc).view(-1)  # (n, ) sc[0, 1]
-                # ranking
-                mm_loss = torch.clamp(
-                    self.margin + neg_sc - pos_sc, 0)  # (n, )
-                return mm_loss
-        else:
+        if not compute_loss:
             # (n, max_num_bb)
             return scores
+        targets = batch["targets"]
+        if self.loss == 'cls':
+            return self.crit(scores, targets.squeeze(-1))
+        # ranking
+        _n = len(num_bbs)
+        # positive (target)
+        pos_ix = targets
+        pos_sc = scores.gather(1, pos_ix.view(_n, 1))  # (n, 1)
+        pos_sc = torch.sigmoid(pos_sc).view(-1)  # (n, ) sc[0, 1]
+        # negative
+        neg_ix = self.sample_neg_ix(scores, targets, num_bbs)
+        neg_sc = scores.gather(1, neg_ix.view(_n, 1))  # (n, 1)
+        neg_sc = torch.sigmoid(neg_sc).view(-1)  # (n, ) sc[0, 1]
+        return torch.clamp(self.margin + neg_sc - pos_sc, 0)
 
     def sample_neg_ix(self, scores, targets, num_bbs):
         """
@@ -145,9 +139,7 @@ class UniterForReferringExpressionComprehension(UniterPreTrainedModel):
                         dim=1)
             outputs.append(img_hid)
 
-        img_hidden = torch.cat(outputs, dim=0)
-        return img_hidden
+        return torch.cat(outputs, dim=0)
 
     def _get_pad(self, t, len_, hidden_size):
-        pad = torch.zeros(1, len_, hidden_size, dtype=t.dtype, device=t.device)
-        return pad
+        return torch.zeros(1, len_, hidden_size, dtype=t.dtype, device=t.device)

@@ -17,13 +17,13 @@ from .data import (DetectFeatTxtTokDataset, TxtTokLmdb, DetectFeatLmdb,
 
 class VcrTxtTokLmdb(TxtTokLmdb):
     def __init__(self, db_dir, max_txt_len=120, task="qa,qar"):
-        assert task == "qa" or task == "qar" or task == "qa,qar",\
-            "VCR only support the following tasks: 'qa', 'qar' or 'qa,qar'"
+        assert task in [
+            "qa",
+            "qar",
+            "qa,qar",
+        ], "VCR only support the following tasks: 'qa', 'qar' or 'qa,qar'"
         self.task = task
-        if task == "qa,qar":
-            id2len_task = "qar"
-        else:
-            id2len_task = task
+        id2len_task = "qar" if task == "qa,qar" else task
         if max_txt_len == -1:
             self.id2len = json.load(
                 open(f'{db_dir}/id2len_{id2len_task}.json'))
@@ -47,8 +47,9 @@ class VcrTxtTokLmdb(TxtTokLmdb):
 
 class VcrDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
     def __init__(self, txt_db, img_db_gt=None, img_db=None):
-        assert not (img_db_gt is None and img_db is None),\
-            "img_db_gt and img_db cannot all be None"
+        assert (
+            img_db_gt is not None or img_db is not None
+        ), "img_db_gt and img_db cannot all be None"
         assert isinstance(txt_db, VcrTxtTokLmdb)
         assert img_db_gt is None or isinstance(img_db_gt, DetectFeatLmdb)
         assert img_db is None or isinstance(img_db, DetectFeatLmdb)
@@ -128,7 +129,7 @@ class VcrDataset(VcrDetectFeatTxtTokDataset):
             example['img_fname'][0], example['img_fname'][1])
         input_ids_q, input_ids_for_choices, type_ids_q = self._get_input_ids(
             example)
-        label = example['%s_target' % (self.task)]
+        label = example[f'{self.task}_target']
 
         outs = []
         for index, input_ids_a in enumerate(input_ids_for_choices):
@@ -137,7 +138,7 @@ class VcrDataset(VcrDetectFeatTxtTokDataset):
             else:
                 target = torch.tensor([0]).long()
             input_ids = [self.txt_db.cls_] + copy.deepcopy(input_ids_q) +\
-                [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
+                    [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
             # type_id
             # 0 -- question
             # 1 -- region
@@ -182,15 +183,16 @@ def vcr_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'txt_type_ids': txt_type_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'targets': targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'txt_type_ids': txt_type_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'targets': targets,
+    }
 
 
 class VcrEvalDataset(VcrDetectFeatTxtTokDataset):
@@ -208,25 +210,25 @@ class VcrEvalDataset(VcrDetectFeatTxtTokDataset):
         type_ids_q = [0]*len(input_ids_q)
         input_ids_as = txt_dump['input_ids_as']
         input_ids_rs = txt_dump['input_ids_rs']
-        for index, input_ids_a in enumerate(input_ids_as):
+        for input_ids_a in input_ids_as:
             curr_input_ids_qa = [self.txt_db.cls_] + copy.deepcopy(input_ids_q) +\
-                [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
+                    [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
             curr_type_ids_qa = [0] + type_ids_q + [2]*(
                 len(input_ids_a)+2)
             input_ids_for_choices.append(curr_input_ids_qa)
             type_ids_for_choices.append(curr_type_ids_qa)
         for index, input_ids_a in enumerate(input_ids_as):
             curr_input_ids_qa = [self.txt_db.cls_] + copy.deepcopy(input_ids_q) +\
-                [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
+                    [self.txt_db.sep] + input_ids_a + [self.txt_db.sep]
             curr_type_ids_qa = [0] + type_ids_q + [2]*(
                 len(input_ids_a)+1)
             if (self.split == "val" and index == txt_dump["qa_target"]) or\
-                    self.split == "test":
+                        self.split == "test":
                 for input_ids_r in input_ids_rs:
                     curr_input_ids_qar = copy.deepcopy(curr_input_ids_qa) +\
-                        input_ids_r + [self.txt_db.sep]
+                            input_ids_r + [self.txt_db.sep]
                     curr_type_ids_qar = copy.deepcopy(curr_type_ids_qa) +\
-                        [3]*(len(input_ids_r)+2)
+                            [3]*(len(input_ids_r)+2)
                     input_ids_for_choices.append(curr_input_ids_qar)
                     type_ids_for_choices.append(curr_type_ids_qar)
         return input_ids_for_choices, type_ids_for_choices

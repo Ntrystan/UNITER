@@ -50,9 +50,9 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     set_random_seed(opts.seed)
 
@@ -124,11 +124,7 @@ def main(opts):
                                         False, opts)
 
     # Prepare model
-    if opts.checkpoint:
-        checkpoint = torch.load(opts.checkpoint)
-    else:
-        checkpoint = {}
-
+    checkpoint = torch.load(opts.checkpoint) if opts.checkpoint else {}
     model = UniterForImageTextRetrievalHardNeg.from_pretrained(
         opts.model_config, state_dict=checkpoint,
         img_dim=IMG_DIM, margin=opts.margin, hard_size=opts.hard_neg_size)
@@ -235,7 +231,7 @@ def main(opts):
                                          ex_per_sec, global_step)
                     TB_LOGGER.add_scalar('perf/hn_per_s',
                                          hn_per_sec, global_step)
-                    LOGGER.info(f'-------------------------------------------')
+                    LOGGER.info('-------------------------------------------')
 
                 if global_step % opts.valid_steps == 0:
                     if opts.full_val:
@@ -297,10 +293,7 @@ def main(opts):
 
 @torch.no_grad()
 def validate(model, val_loader):
-    if hvd.rank() == 0:
-        pbar = tqdm(total=len(val_loader))
-    else:
-        pbar = NoOp()
+    pbar = tqdm(total=len(val_loader)) if hvd.rank() == 0 else NoOp()
     LOGGER.info("start running Image Retrieval validation ...")
     model.eval()
     n_ex = 0
@@ -425,14 +418,15 @@ if __name__ == "__main__":
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     # options safe guard
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     # for tensor core
     assert (args.negative_size+1) % 8 == (args.hard_neg_size+1) % 8 == 0

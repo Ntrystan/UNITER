@@ -56,10 +56,7 @@ class VcrPretrainDataset(VcrDetectFeatTxtTokDataset):
             input_ids += [self.txt_db.sep] + input_ids_r
             type_ids += [2] + type_ids_r
             txt_labels += [-1] + txt_labels_r
-        if mask:
-            return input_ids, type_ids, txt_labels
-        else:
-            return input_ids, type_ids
+        return (input_ids, type_ids, txt_labels) if mask else (input_ids, type_ids)
 
     def combine_txt_inputs(self, input_ids, txt_type_ids, txt_labels=None):
         input_ids = torch.tensor([self.txt_db.cls_]
@@ -98,14 +95,15 @@ def vcr_pretrain_collate(
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'txt_type_ids': txt_type_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'txt_type_ids': txt_type_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+    }
 
 
 class MlmDatasetForVCR(VcrPretrainDataset):

@@ -23,22 +23,18 @@ def _get_img_mask(mask_prob, num_bb):
 
 def _get_img_tgt_mask(img_mask, txt_len):
     z = torch.zeros(txt_len, dtype=torch.uint8)
-    img_mask_tgt = torch.cat([z, img_mask], dim=0)
-    return img_mask_tgt
+    return torch.cat([z, img_mask], dim=0)
 
 
 def _get_feat_target(img_feat, img_masks):
     img_masks_ext = img_masks.unsqueeze(-1).expand_as(img_feat)  # (n, m, d)
     feat_dim = img_feat.size(-1)
-    feat_targets = img_feat[img_masks_ext].contiguous().view(
-        -1, feat_dim)  # (s, d)
-    return feat_targets
+    return img_feat[img_masks_ext].contiguous().view(-1, feat_dim)
 
 
 def _mask_img_feat(img_feat, img_masks):
     img_masks_ext = img_masks.unsqueeze(-1).expand_as(img_feat)
-    img_feat_masked = img_feat.data.masked_fill(img_masks_ext, 0)
-    return img_feat_masked
+    return img_feat.data.masked_fill(img_masks_ext, 0)
 
 
 class MrfrDataset(DetectFeatTxtTokDataset):
@@ -109,24 +105,27 @@ def mrfr_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'feat_targets': feat_targets,
-             'img_masks': img_masks,
-             'img_mask_tgt': img_mask_tgt}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'feat_targets': feat_targets,
+        'img_masks': img_masks,
+        'img_mask_tgt': img_mask_tgt,
+    }
 
 
 def _get_targets(img_masks, img_soft_label):
     soft_label_dim = img_soft_label.size(-1)
     img_masks_ext_for_label = img_masks.unsqueeze(-1).expand_as(img_soft_label)
-    label_targets = img_soft_label[img_masks_ext_for_label].contiguous().view(
-        -1, soft_label_dim)
-    return label_targets
+    return (
+        img_soft_label[img_masks_ext_for_label]
+        .contiguous()
+        .view(-1, soft_label_dim)
+    )
 
 
 class MrcDataset(DetectFeatTxtTokDataset):
@@ -188,13 +187,14 @@ def mrc_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'img_masks': img_masks,
-             'img_mask_tgt': img_mask_tgt,
-             'label_targets': label_targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'img_masks': img_masks,
+        'img_mask_tgt': img_mask_tgt,
+        'label_targets': label_targets,
+    }

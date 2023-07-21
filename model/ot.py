@@ -17,8 +17,7 @@ def cost_matrix_cosine(x, y, eps=1e-5):
     x_norm = F.normalize(x, p=2, dim=-1, eps=eps)
     y_norm = F.normalize(y, p=2, dim=-1, eps=eps)
     cosine_sim = x_norm.matmul(y_norm.transpose(1, 2))
-    cosine_dist = 1 - cosine_sim
-    return cosine_dist
+    return 1 - cosine_sim
 
 
 def trace(x):
@@ -27,9 +26,12 @@ def trace(x):
     assert m == n
     mask = torch.eye(n, dtype=torch.uint8, device=x.device
                      ).unsqueeze(0).expand_as(x)
-    trace = x.masked_select(mask).contiguous().view(
-        b, n).sum(dim=-1, keepdim=False)
-    return trace
+    return (
+        x.masked_select(mask)
+        .contiguous()
+        .view(b, n)
+        .sum(dim=-1, keepdim=False)
+    )
 
 
 @torch.no_grad()
@@ -81,5 +83,4 @@ def optimal_transport_dist(txt_emb, img_emb, txt_pad, img_pad,
 
     T = ipot(cost.detach(), txt_len, txt_pad, img_len, img_pad, joint_pad,
              beta, iteration, k)
-    distance = trace(cost.matmul(T.detach()))
-    return distance
+    return trace(cost.matmul(T.detach()))

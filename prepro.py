@@ -21,11 +21,8 @@ from data.data import open_lmdb
 def bert_tokenize(tokenizer, text):
     ids = []
     for word in text.strip().split():
-        ws = tokenizer.tokenize(word)
-        if not ws:
-            # some special char
-            continue
-        ids.extend(tokenizer.convert_tokens_to_ids(ws))
+        if ws := tokenizer.tokenize(word):
+            ids.extend(tokenizer.convert_tokens_to_ids(ws))
     return ids
 
 
@@ -67,25 +64,30 @@ def process_referring_expressions(refs, instances, iid_to_ann_ids,
     - categories : [{id, name, supercategory}]
     """
     # images within split
-    image_set = set([ref['image_id'] for ref in refs if ref['split'] == split])
-    images = []
-    for img in instances['images']:
-        if img['id'] in image_set:
-            images.append({
-                'id': img['id'], 'file_name': img['file_name'],
-                'ann_ids': iid_to_ann_ids[str(img['id'])],
-                'height': img['height'], 'width': img['width']})
-    # Images = {img['id']: img for img in images}
-    # anns within split
-    annotations = []
-    for ann in instances['annotations']:
-        if ann['image_id'] in image_set:
-            annotations.append({
-                'id': ann['id'], 'area': ann['area'], 'bbox': ann['bbox'],
-                'image_id': ann['image_id'],
-                'category_id': ann['category_id'],
-                'iscrowd': ann['iscrowd']
-            })
+    image_set = {ref['image_id'] for ref in refs if ref['split'] == split}
+    images = [
+        {
+            'id': img['id'],
+            'file_name': img['file_name'],
+            'ann_ids': iid_to_ann_ids[str(img['id'])],
+            'height': img['height'],
+            'width': img['width'],
+        }
+        for img in instances['images']
+        if img['id'] in image_set
+    ]
+    annotations = [
+        {
+            'id': ann['id'],
+            'area': ann['area'],
+            'bbox': ann['bbox'],
+            'image_id': ann['image_id'],
+            'category_id': ann['category_id'],
+            'iscrowd': ann['iscrowd'],
+        }
+        for ann in instances['annotations']
+        if ann['image_id'] in image_set
+    ]
     Anns = {ann['id']: ann for ann in annotations}
     # category info
     categories = instances['categories']

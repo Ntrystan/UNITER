@@ -77,7 +77,7 @@ def main(opts):
     with open(f'{opts.output_dir}/results.csv', 'w') as f:
         for id_, ans in results:
             f.write(f'{id_},{ans}\n')
-    print(f'all results written')
+    print('all results written')
 
 
 @torch.no_grad()
@@ -87,7 +87,7 @@ def evaluate(model, eval_loader, device):
     n_ex = 0
     st = time()
     results = []
-    for i, batch in enumerate(eval_loader):
+    for batch in eval_loader:
         qids = batch['qids']
         del batch['targets']
         del batch['qids']

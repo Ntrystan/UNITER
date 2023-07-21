@@ -61,14 +61,15 @@ def vqa_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'targets': targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'targets': targets,
+    }
 
 
 class VqaEvalDataset(VqaDataset):
@@ -102,11 +103,7 @@ def vqa_eval_collate(inputs):
     position_ids = torch.arange(0, input_ids.size(1), dtype=torch.long
                                 ).unsqueeze(0)
     attn_masks = pad_sequence(attn_masks, batch_first=True, padding_value=0)
-    if targets[0] is None:
-        targets = None
-    else:
-        targets = torch.stack(targets, dim=0)
-
+    targets = None if targets[0] is None else torch.stack(targets, dim=0)
     num_bbs = [f.size(0) for f in img_feats]
     img_feat = pad_tensors(img_feats, num_bbs)
     img_pos_feat = pad_tensors(img_pos_feats, num_bbs)
@@ -115,12 +112,13 @@ def vqa_eval_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'qids': qids,
-             'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'targets': targets}
-    return batch
+    return {
+        'qids': qids,
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'targets': targets,
+    }

@@ -89,9 +89,9 @@ def main(opts):
     device = torch.device("cuda", hvd.local_rank())
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
     if rank != 0:
         LOGGER.disabled = True
 
@@ -120,9 +120,7 @@ def main(opts):
     state_dict = checkpoint.get('model_state', checkpoint)
     matched_state_dict = {}
     unexpected_keys = set()
-    missing_keys = set()
-    for name, param in model.named_parameters():
-        missing_keys.add(name)
+    missing_keys = {name for name, param in model.named_parameters()}
     for key, data in state_dict.items():
         if key in missing_keys:
             matched_state_dict[key] = data
@@ -151,7 +149,7 @@ def main(opts):
 
     all_results = {}
     for id2res in all_gather_list(results):
-        all_results.update(id2res)
+        all_results |= id2res
     if hvd.rank() == 0:
         with open(f'{result_dir}/'
                   f'results_{opts.checkpoint}_all.json', 'w') as f:
@@ -165,10 +163,7 @@ def main(opts):
 def evaluate(model, eval_loader):
     model.eval()
     LOGGER.info("start running evaluation ...")
-    if hvd.rank() == 0:
-        val_pbar = tqdm(total=len(eval_loader))
-    else:
-        val_pbar = NoOp()
+    val_pbar = tqdm(total=len(eval_loader)) if hvd.rank() == 0 else NoOp()
     val_qa_loss, val_qar_loss = 0, 0
     tot_qa_score, tot_qar_score, tot_score = 0, 0, 0
     n_ex = 0

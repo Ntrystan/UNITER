@@ -68,6 +68,4 @@ class ModelSaver(object):
         torch.save(state_dict, output_model_file)
         if optimizer is not None:
             dump = {'step': step, 'optimizer': optimizer.state_dict()}
-            if hasattr(optimizer, '_amp_stash'):
-                pass  # TODO fp16 optimizer
             torch.save(dump, f'{self.output_dir}/train_state_{step}.pt')

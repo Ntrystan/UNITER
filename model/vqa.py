@@ -45,8 +45,8 @@ class UniterForVisualQuestionAnswering(UniterPreTrainedModel):
 
         if compute_loss:
             targets = batch['targets']
-            vqa_loss = F.binary_cross_entropy_with_logits(
-                answer_scores, targets, reduction='none')
-            return vqa_loss
+            return F.binary_cross_entropy_with_logits(
+                answer_scores, targets, reduction='none'
+            )
         else:
             return answer_scores

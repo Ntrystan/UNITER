@@ -29,8 +29,7 @@ class RegionFeatureRegression(nn.Module):
 
     def forward(self, input_):
         hidden = self.net(input_)
-        output = F.linear(hidden, self.weight.t(), self.bias)
-        return output
+        return F.linear(hidden, self.weight.t(), self.bias)
 
 
 class RegionClassification(nn.Module):
@@ -43,8 +42,7 @@ class RegionClassification(nn.Module):
                                  nn.Linear(hidden_size, label_dim))
 
     def forward(self, input_):
-        output = self.net(input_)
-        return output
+        return self.net(input_)
 
 
 class UniterForPretraining(UniterPreTrainedModel):
@@ -119,18 +117,16 @@ class UniterForPretraining(UniterPreTrainedModel):
         prediction_scores = self.cls(masked_output)
 
         if compute_loss:
-            masked_lm_loss = F.cross_entropy(prediction_scores,
-                                             txt_labels[txt_labels != -1],
-                                             reduction='none')
-            return masked_lm_loss
+            return F.cross_entropy(
+                prediction_scores, txt_labels[txt_labels != -1], reduction='none'
+            )
         else:
             return prediction_scores
 
     def _compute_masked_hidden(self, hidden, mask):
         """ get only the masked region (don't compute unnecessary hiddens) """
         mask = mask.unsqueeze(-1).expand_as(hidden)
-        hidden_masked = hidden[mask].contiguous().view(-1, hidden.size(-1))
-        return hidden_masked
+        return hidden[mask].contiguous().view(-1, hidden.size(-1))
 
     def forward_mrfr(self, input_ids, position_ids, img_feat, img_pos_feat,
                      attention_mask, gather_index, img_masks, img_mask_tgt,
@@ -147,9 +143,7 @@ class UniterForPretraining(UniterPreTrainedModel):
         prediction_feat = self.feat_regress(masked_output)
 
         if compute_loss:
-            mrfr_loss = F.mse_loss(prediction_feat, feat_targets,
-                                   reduction='none')
-            return mrfr_loss
+            return F.mse_loss(prediction_feat, feat_targets, reduction='none')
         else:
             return prediction_feat
 
@@ -192,11 +186,10 @@ class UniterForPretraining(UniterPreTrainedModel):
         else:
             ot_loss = None
 
-        if compute_loss:
-            itm_loss = F.cross_entropy(itm_scores, targets, reduction='none')
-            return itm_loss, ot_loss
-        else:
+        if not compute_loss:
             return itm_scores, ot_loss
+        itm_loss = F.cross_entropy(itm_scores, targets, reduction='none')
+        return itm_loss, ot_loss
 
     def forward_mrc(self, input_ids, position_ids, img_feat, img_pos_feat,
                     attention_mask, gather_index, img_masks, img_mask_tgt,
@@ -216,14 +209,17 @@ class UniterForPretraining(UniterPreTrainedModel):
             if "kl" in task:
                 prediction_soft_label = F.log_softmax(
                     prediction_soft_label, dim=-1)
-                mrc_loss = F.kl_div(
-                    prediction_soft_label, label_targets, reduction='none')
+                return F.kl_div(
+                    prediction_soft_label, label_targets, reduction='none'
+                )
             else:
                 # background class should not be the target
                 label_targets = torch.max(label_targets[:, 1:], dim=-1)[1] + 1
-                mrc_loss = F.cross_entropy(
-                    prediction_soft_label, label_targets,
-                    ignore_index=0, reduction='none')
-            return mrc_loss
+                return F.cross_entropy(
+                    prediction_soft_label,
+                    label_targets,
+                    ignore_index=0,
+                    reduction='none',
+                )
         else:
             return prediction_soft_label

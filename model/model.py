@@ -106,8 +106,7 @@ class UniterConfig(object):
 
     def to_dict(self):
         """Serializes this instance to a Python dictionary."""
-        output = copy.deepcopy(self.__dict__)
-        return output
+        return copy.deepcopy(self.__dict__)
 
     def to_json_string(self):
         """Serializes this instance to a JSON string."""
@@ -122,12 +121,8 @@ class UniterPreTrainedModel(nn.Module):
         super().__init__()
         if not isinstance(config, UniterConfig):
             raise ValueError(
-                "Parameter config in `{}(config)` should be an instance of "
-                "class `UniterConfig`. To create a model from a Google "
-                "pretrained model use "
-                "`model = {}.from_pretrained(PRETRAINED_MODEL_NAME)`".format(
-                    self.__class__.__name__, self.__class__.__name__
-                ))
+                f"Parameter config in `{self.__class__.__name__}(config)` should be an instance of class `UniterConfig`. To create a model from a Google pretrained model use `model = {self.__class__.__name__}.from_pretrained(PRETRAINED_MODEL_NAME)`"
+            )
         self.config = config
 
     def init_weights(self, module):
@@ -193,20 +188,21 @@ class UniterPreTrainedModel(nn.Module):
             for name, child in module._modules.items():
                 if child is not None:
                     load(child, prefix + name + '.')
+
         start_prefix = ''
         if not hasattr(model, 'bert') and any(s.startswith('bert.')
                                               for s in state_dict.keys()):
             start_prefix = 'bert.'
         load(model, prefix=start_prefix)
-        if len(missing_keys) > 0:
+        if missing_keys:
             logger.info("Weights of {} not initialized from "
                         "pretrained model: {}".format(
                             model.__class__.__name__, missing_keys))
-        if len(unexpected_keys) > 0:
+        if unexpected_keys:
             logger.info("Weights from pretrained model not used in "
                         "{}: {}".format(
                             model.__class__.__name__, unexpected_keys))
-        if len(error_msgs) > 0:
+        if error_msgs:
             raise RuntimeError('Error(s) in loading state_dict for '
                                '{}:\n\t{}'.format(
                                    model.__class__.__name__,
@@ -305,8 +301,7 @@ class UniterModel(UniterPreTrainedModel):
 
     def _compute_txt_embeddings(self, input_ids, position_ids,
                                 txt_type_ids=None):
-        output = self.embeddings(input_ids, position_ids, txt_type_ids)
-        return output
+        return self.embeddings(input_ids, position_ids, txt_type_ids)
 
     def _compute_img_embeddings(self, img_feat, img_pos_feat, img_masks=None,
                                 img_type_ids=None):
@@ -314,9 +309,9 @@ class UniterModel(UniterPreTrainedModel):
             img_type_ids = torch.ones_like(img_feat[:, :, 0].long())
         img_type_embeddings = self.embeddings.token_type_embeddings(
             img_type_ids)
-        output = self.img_embeddings(img_feat, img_pos_feat,
-                                     img_type_embeddings, img_masks)
-        return output
+        return self.img_embeddings(
+            img_feat, img_pos_feat, img_type_embeddings, img_masks
+        )
 
     def _compute_img_txt_embeddings(self, input_ids, position_ids,
                                     img_feat, img_pos_feat,
@@ -329,9 +324,9 @@ class UniterModel(UniterPreTrainedModel):
         # align back to most compact input
         gather_index = gather_index.unsqueeze(-1).expand(
             -1, -1, self.config.hidden_size)
-        embedding_output = torch.gather(torch.cat([txt_emb, img_emb], dim=1),
-                                        dim=1, index=gather_index)
-        return embedding_output
+        return torch.gather(
+            torch.cat([txt_emb, img_emb], dim=1), dim=1, index=gather_index
+        )
 
     def forward(self, input_ids, position_ids,
                 img_feat, img_pos_feat,
