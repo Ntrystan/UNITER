@@ -46,8 +46,7 @@ ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish}
 
 class GELU(nn.Module):
     def forward(self, input_):
-        output = gelu(input_)
-        return output
+        return gelu(input_)
 
 
 class BertSelfAttention(nn.Module):
@@ -123,8 +122,7 @@ class BertAttention(nn.Module):
 
     def forward(self, input_tensor, attention_mask):
         self_output = self.self(input_tensor, attention_mask)
-        attention_output = self.output(self_output, input_tensor)
-        return attention_output
+        return self.output(self_output, input_tensor)
 
 
 class BertIntermediate(nn.Module):
@@ -166,8 +164,7 @@ class BertLayer(nn.Module):
     def forward(self, hidden_states, attention_mask):
         attention_output = self.attention(hidden_states, attention_mask)
         intermediate_output = self.intermediate(attention_output)
-        layer_output = self.output(intermediate_output, attention_output)
-        return layer_output
+        return self.output(intermediate_output, attention_output)
 
 
 class BertPooler(nn.Module):
@@ -229,5 +226,4 @@ class BertOnlyMLMHead(nn.Module):
                                                 bert_model_embedding_weights)
 
     def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
-        return prediction_scores
+        return self.predictions(sequence_output)

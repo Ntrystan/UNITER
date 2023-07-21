@@ -205,5 +205,4 @@ def any_broadcast(data, root_rank):
     hvd.broadcast_(buffer_, root_rank)
 
     bytes_list, _ = _decode(buffer_, enc_byte)
-    result = pickle.loads(bytes_list)
-    return result
+    return pickle.loads(bytes_list)

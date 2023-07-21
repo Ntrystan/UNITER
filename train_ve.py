@@ -60,14 +60,14 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.gradient_accumulation_steps < 1:
-        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, "
-                         "should be >= 1".format(
-                            opts.gradient_accumulation_steps))
+        raise ValueError(
+            f"Invalid gradient_accumulation_steps parameter: {opts.gradient_accumulation_steps}, should be >= 1"
+        )
 
     set_random_seed(opts.seed)
 
@@ -85,10 +85,7 @@ def main(opts):
                                         VeEvalDataset, ve_eval_collate, opts)
 
     # Prepare model
-    if opts.checkpoint:
-        checkpoint = torch.load(opts.checkpoint)
-    else:
-        checkpoint = {}
+    checkpoint = torch.load(opts.checkpoint) if opts.checkpoint else {}
     bert_model = json.load(open(f'{opts.train_txt_db}/meta.json'))['bert']
     if 'bert' not in bert_model:
         bert_model = 'bert-large-cased'  # quick hack for glove exp
@@ -185,7 +182,7 @@ def main(opts):
                                 f'{ex_per_sec} ex/s')
                     TB_LOGGER.add_scalar('perf/ex_per_s',
                                          ex_per_sec, global_step)
-                    LOGGER.info(f'===========================================')
+                    LOGGER.info('===========================================')
 
                 if global_step % opts.valid_steps == 0:
                     for split, loader in [("val", val_dataloader),
@@ -228,7 +225,7 @@ def validate(model, val_loader, label2ans, split='val'):
     n_ex = 0
     st = time()
     results = {}
-    for i, batch in enumerate(val_loader):
+    for batch in val_loader:
         scores = model(batch, compute_loss=False)
         targets = batch['targets']
         loss = F.binary_cross_entropy_with_logits(
@@ -261,8 +258,7 @@ def compute_score_with_logits(logits, labels):
     logits = torch.max(logits, 1)[1]  # argmax
     one_hots = torch.zeros(*labels.size(), device=labels.device)
     one_hots.scatter_(1, logits.view(-1, 1), 1)
-    scores = (one_hots * labels)
-    return scores
+    return (one_hots * labels)
 
 
 if __name__ == "__main__":
@@ -383,12 +379,13 @@ if __name__ == "__main__":
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     main(args)

@@ -126,11 +126,12 @@ def mlm_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'txt_labels': txt_labels}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'txt_labels': txt_labels,
+    }

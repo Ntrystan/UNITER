@@ -62,20 +62,36 @@ def build_optimizer(model, opts):
     param_top = [(n, p) for n, p in model.named_parameters()
                  if 'vcr_output' in n]
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_top
-                    if not any(nd in n for nd in no_decay)],
-         'lr': opts.learning_rate,
-         'weight_decay': opts.weight_decay},
-        {'params': [p for n, p in param_top
-                    if any(nd in n for nd in no_decay)],
-         'lr': opts.learning_rate,
-         'weight_decay': 0.0},
-        {'params': [p for n, p in param_optimizer
-                    if not any(nd in n for nd in no_decay)],
-         'weight_decay': opts.weight_decay},
-        {'params': [p for n, p in param_optimizer
-                    if any(nd in n for nd in no_decay)],
-         'weight_decay': 0.0}
+        {
+            'params': [
+                p for n, p in param_top if all(nd not in n for nd in no_decay)
+            ],
+            'lr': opts.learning_rate,
+            'weight_decay': opts.weight_decay,
+        },
+        {
+            'params': [
+                p for n, p in param_top if any(nd in n for nd in no_decay)
+            ],
+            'lr': opts.learning_rate,
+            'weight_decay': 0.0,
+        },
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if all(nd not in n for nd in no_decay)
+            ],
+            'weight_decay': opts.weight_decay,
+        },
+        {
+            'params': [
+                p
+                for n, p in param_optimizer
+                if any(nd in n for nd in no_decay)
+            ],
+            'weight_decay': 0.0,
+        },
     ]
 
     # currently Adam only
@@ -87,9 +103,9 @@ def build_optimizer(model, opts):
         OptimCls = AdamW
     else:
         raise ValueError('invalid optimizer')
-    optimizer = OptimCls(optimizer_grouped_parameters,
-                         lr=opts.learning_rate, betas=opts.betas)
-    return optimizer
+    return OptimCls(
+        optimizer_grouped_parameters, lr=opts.learning_rate, betas=opts.betas
+    )
 
 
 def load_img_feat(db_list, all_img_dbs, opts):
@@ -120,14 +136,14 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.gradient_accumulation_steps < 1:
-        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, "
-                         "should be >= 1".format(
-                            opts.gradient_accumulation_steps))
+        raise ValueError(
+            f"Invalid gradient_accumulation_steps parameter: {opts.gradient_accumulation_steps}, should be >= 1"
+        )
 
     set_random_seed(opts.seed)
 
@@ -142,10 +158,12 @@ def main(opts):
         img_db, img_db_gt = load_img_feat(img_path, all_img_dbs, opts)
         qa_txt_db = VcrTxtTokLmdb(txt_path, opts.max_txt_len, task="qa")
         qar_txt_db = VcrTxtTokLmdb(txt_path, opts.max_txt_len, task="qar")
-        train_datasets.append(
-            VcrDataset(qa_txt_db, img_db_gt=img_db_gt, img_db=img_db))
-        train_datasets.append(
-            VcrDataset(qar_txt_db, img_db_gt=img_db_gt, img_db=img_db))
+        train_datasets.extend(
+            (
+                VcrDataset(qa_txt_db, img_db_gt=img_db_gt, img_db=img_db),
+                VcrDataset(qar_txt_db, img_db_gt=img_db_gt, img_db=img_db),
+            )
+        )
     train_dataset = ConcatDatasetWithLens(train_datasets)
     train_dataloader = build_dataloader(train_dataset, vcr_collate, True, opts)
     # val
@@ -182,9 +200,7 @@ def main(opts):
         state_dict = checkpoint.get('model_state', checkpoint)
         matched_state_dict = {}
         unexpected_keys = set()
-        missing_keys = set()
-        for name, param in model.named_parameters():
-            missing_keys.add(name)
+        missing_keys = {name for name, param in model.named_parameters()}
         for key, data in state_dict.items():
             if key in missing_keys:
                 matched_state_dict[key] = data
@@ -257,9 +273,9 @@ def main(opts):
                 # learning rate scheduling
                 lr_this_step = get_lr_sched(global_step, opts)
                 for i, param_group in enumerate(optimizer.param_groups):
-                    if i == 0 or i == 1:
+                    if i in [0, 1]:
                         param_group['lr'] = lr_this_step * opts.lr_mul
-                    elif i == 2 or i == 3:
+                    elif i in [2, 3]:
                         param_group['lr'] = lr_this_step
                     else:
                         raise ValueError()
@@ -328,10 +344,7 @@ def compute_accuracies(out_qa, labels_qa, out_qar, labels_qar):
 
 @torch.no_grad()
 def validate(model, val_loader):
-    if hvd.rank() == 0:
-        val_pbar = tqdm(total=len(val_loader))
-    else:
-        val_pbar = NoOp()
+    val_pbar = tqdm(total=len(val_loader)) if hvd.rank() == 0 else NoOp()
     LOGGER.info("start running validation...")
     model.eval()
     val_qa_loss, val_qar_loss = 0, 0
@@ -480,13 +493,14 @@ if __name__ == "__main__":
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     # options safe guard
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     main(args)

@@ -85,9 +85,7 @@ class RunningMeter(object):
 
     @property
     def val(self):
-        if self._val is None:
-            return 0
-        return self._val
+        return 0 if self._val is None else self._val
 
     @property
     def name(self):

@@ -24,10 +24,10 @@ msgpack_numpy.patch()
 
 
 def _fp16_to_fp32(feat_dict):
-    out = {k: arr.astype(np.float32)
-           if arr.dtype == np.float16 else arr
-           for k, arr in feat_dict.items()}
-    return out
+    return {
+        k: arr.astype(np.float32) if arr.dtype == np.float16 else arr
+        for k, arr in feat_dict.items()
+    }
 
 
 def compute_num_bb(confs, conf_th, min_bb, max_bb):
@@ -65,10 +65,7 @@ class DetectFeatLmdb(object):
             db_name += '_compressed'
 
         if self.name2nbb is None:
-            if compress:
-                db_name = 'all_compressed'
-            else:
-                db_name = 'all'
+            db_name = 'all_compressed' if compress else 'all'
         # only read ahead on single node training
         self.env = lmdb.open(f'{img_dir}/{db_name}',
                              readonly=True, create=False,
@@ -195,8 +192,7 @@ class TxtTokLmdb(object):
         self.v_range = meta['v_range']
 
     def __getitem__(self, id_):
-        txt_dump = self.db[id_]
-        return txt_dump
+        return self.db[id_]
 
     def combine_inputs(self, *inputs):
         input_ids = [self.cls_]
@@ -206,13 +202,11 @@ class TxtTokLmdb(object):
 
     @property
     def txt2img(self):
-        txt2img = json.load(open(f'{self.db_dir}/txt2img.json'))
-        return txt2img
+        return json.load(open(f'{self.db_dir}/txt2img.json'))
 
     @property
     def img2txts(self):
-        img2txts = json.load(open(f'{self.db_dir}/img2txts.json'))
-        return img2txts
+        return json.load(open(f'{self.db_dir}/img2txts.json'))
 
 
 def get_ids_and_lens(db):
@@ -242,8 +236,7 @@ class DetectFeatTxtTokDataset(Dataset):
 
     def __getitem__(self, i):
         id_ = self.ids[i]
-        example = self.txt_db[id_]
-        return example
+        return self.txt_db[id_]
 
     def _get_img_feat(self, fname):
         img_feat, bb = self.img_db[fname]

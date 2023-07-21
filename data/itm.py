@@ -57,7 +57,7 @@ class ItmDataset(DetectFeatTxtTokDataset):
         self.img_db = img_db
 
         self.txt_lens, self.ids = get_ids_and_lens(txt_db)
-        self.all_imgs = list(set(txt_db[id_]['img_fname'] for id_ in self.ids))
+        self.all_imgs = list({txt_db[id_]['img_fname'] for id_ in self.ids})
 
         self.neg_sample_p = neg_sample_p
         self.new_epoch()
@@ -115,14 +115,15 @@ def itm_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'targets': targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'targets': targets,
+    }
 
 
 def _compute_ot_scatter(txt_lens, max_txt_len, joint_len):
@@ -173,15 +174,16 @@ def itm_ot_collate(inputs):
                  'txt_pad': txt_pad,
                  'img_pad': img_pad}
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'targets': targets,
-             'ot_inputs': ot_inputs}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'targets': targets,
+        'ot_inputs': ot_inputs,
+    }
 
 
 class ItmRankDataset(DetectFeatTxtTokDataset):
@@ -238,8 +240,12 @@ class ItmRankDataset(DetectFeatTxtTokDataset):
 
 
 def itm_rank_collate(inputs):
-    (input_ids, img_feats, img_pos_feats, attn_masks,
-     ) = map(list, unzip(concat(i for i in inputs)))
+    (
+        input_ids,
+        img_feats,
+        img_pos_feats,
+        attn_masks,
+    ) = map(list, unzip(concat(iter(inputs))))
 
     txt_lens = [i.size(0) for i in input_ids]
     input_ids = pad_sequence(input_ids, batch_first=True, padding_value=0)
@@ -258,14 +264,15 @@ def itm_rank_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'sample_size': sample_size}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'sample_size': sample_size,
+    }
 
 
 class ItmRankDatasetHardNegFromText(DetectFeatTxtTokDataset):
@@ -306,13 +313,14 @@ class ItmRankDatasetHardNegFromText(DetectFeatTxtTokDataset):
         gather_index = get_gather_index([tl]*len(img_ids), num_bbs,
                                         len(img_ids), tl, out_size)
 
-        batch = {'input_ids': input_ids,
-                 'position_ids': position_ids,
-                 'img_feat': img_feat,
-                 'img_pos_feat': img_pos_feat,
-                 'attn_masks': attn_masks,
-                 'gather_index': gather_index}
-        return batch
+        return {
+            'input_ids': input_ids,
+            'position_ids': position_ids,
+            'img_feat': img_feat,
+            'img_pos_feat': img_pos_feat,
+            'attn_masks': attn_masks,
+            'gather_index': gather_index,
+        }
 
 
 class ItmRankDatasetHardNegFromImage(DetectFeatTxtTokDataset):
@@ -360,13 +368,14 @@ class ItmRankDatasetHardNegFromImage(DetectFeatTxtTokDataset):
         gather_index = get_gather_index(txt_lens, [nbb]*len(txt_ids),
                                         len(txt_ids), tl, out_size)
 
-        batch = {'input_ids': input_ids,
-                 'position_ids': position_ids,
-                 'img_feat': img_feat,
-                 'img_pos_feat': img_pos_feat,
-                 'attn_masks': attn_masks,
-                 'gather_index': gather_index}
-        return batch
+        return {
+            'input_ids': input_ids,
+            'position_ids': position_ids,
+            'img_feat': img_feat,
+            'img_pos_feat': img_pos_feat,
+            'attn_masks': attn_masks,
+            'gather_index': gather_index,
+        }
 
 
 def itm_rank_hn_collate(inputs):
@@ -410,9 +419,7 @@ class ItmValDataset(DetectFeatTxtTokDataset):
     def __getitem__(self, i):
         """ this returns list of mini-batches """
         gt_img_id, neg_img_ids = self._get_batch_ids(i)
-        # NOTE 1st one is gt img
-        batch = self.get_batch(i, [gt_img_id] + neg_img_ids)
-        return batch
+        return self.get_batch(i, [gt_img_id] + neg_img_ids)
 
     def get_batch(self, i, img_ids):
         example = super().__getitem__(i)
@@ -437,13 +444,14 @@ class ItmValDataset(DetectFeatTxtTokDataset):
         gather_index = get_gather_index([tl]*len(img_ids), num_bbs,
                                         len(img_ids), tl, out_size)
 
-        batch = {'input_ids': input_ids,
-                 'position_ids': position_ids,
-                 'img_feat': img_feat,
-                 'img_pos_feat': img_pos_feat,
-                 'attn_masks': attn_masks,
-                 'gather_index': gather_index}
-        return batch
+        return {
+            'input_ids': input_ids,
+            'position_ids': position_ids,
+            'img_feat': img_feat,
+            'img_pos_feat': img_pos_feat,
+            'attn_masks': attn_masks,
+            'gather_index': gather_index,
+        }
 
 
 def itm_val_collate(inputs):
@@ -458,11 +466,10 @@ class ItmEvalDataset(ItmValDataset):
                                   key=lambda i: self.img_db.name2nbb[i])
 
     def __getitem__(self, i):
-        mini_batches = []
-        for st in range(0, len(self.all_img_ids), self.bs):
-            mini_batches.append(
-                self.get_batch(i, self.all_img_ids[st:st+self.bs]))
-        return mini_batches
+        return [
+            self.get_batch(i, self.all_img_ids[st : st + self.bs])
+            for st in range(0, len(self.all_img_ids), self.bs)
+        ]
 
 
 itm_eval_collate = itm_val_collate

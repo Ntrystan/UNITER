@@ -68,10 +68,9 @@ class UniterForVisualCommonsenseReasoning(UniterPreTrainedModel):
 
         if compute_loss:
             targets = batch['targets']
-            vcr_loss = F.cross_entropy(
-                    rank_scores, targets.squeeze(-1),
-                    reduction='mean')
-            return vcr_loss
+            return F.cross_entropy(
+                rank_scores, targets.squeeze(-1), reduction='mean'
+            )
         else:
             rank_scores = rank_scores[:, 1:]
             return rank_scores

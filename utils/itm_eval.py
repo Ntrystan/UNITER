@@ -54,16 +54,17 @@ def itm_eval(score_matrix, txt_ids, img_ids, txt2img, img2txts):
     ir_mean = (ir_r1 + ir_r5 + ir_r10) / 3
     r_mean = (tr_mean + ir_mean) / 2
 
-    eval_log = {'txt_r1': tr_r1,
-                'txt_r5': tr_r5,
-                'txt_r10': tr_r10,
-                'txt_r_mean': tr_mean,
-                'img_r1': ir_r1,
-                'img_r5': ir_r5,
-                'img_r10': ir_r10,
-                'img_r_mean': ir_mean,
-                'r_mean': r_mean}
-    return eval_log
+    return {
+        'txt_r1': tr_r1,
+        'txt_r5': tr_r5,
+        'txt_r10': tr_r10,
+        'txt_r_mean': tr_mean,
+        'img_r1': ir_r1,
+        'img_r5': ir_r5,
+        'img_r10': ir_r10,
+        'img_r_mean': ir_mean,
+        'r_mean': r_mean,
+    }
 
 
 @torch.no_grad()
@@ -92,10 +93,7 @@ def evaluate(model, eval_loader):
 @torch.no_grad()
 def inference(model, eval_loader):
     model.eval()
-    if hvd.rank() == 0:
-        pbar = tqdm(total=len(eval_loader))
-    else:
-        pbar = NoOp()
+    pbar = tqdm(total=len(eval_loader)) if hvd.rank() == 0 else NoOp()
     score_matrix = torch.zeros(len(eval_loader.dataset),
                                len(eval_loader.dataset.all_img_ids),
                                device=torch.device("cuda"),

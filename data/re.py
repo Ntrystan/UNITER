@@ -68,9 +68,7 @@ class ReTxtTokLmdb(TxtTokLmdb):
         self.sent_ids = self._get_sent_ids()
 
     def __getitem__(self, id_):
-        # sent_id = self.sent_ids[i]
-        txt_dump = self.db[id_]
-        return txt_dump
+        return self.db[id_]
 
 
 class ReDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
@@ -83,8 +81,7 @@ class ReDetectFeatTxtTokDataset(DetectFeatTxtTokDataset):
 
     def __getitem__(self, i):
         id_ = self.ids[i]
-        example = self.txt_db[id_]
-        return example
+        return self.txt_db[id_]
 
     def shuffle(self):
         self.txt_db.shuffle()

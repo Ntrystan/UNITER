@@ -55,9 +55,7 @@ class UniterForNlvr2Paired(UniterPreTrainedModel):
 
         if compute_loss:
             targets = batch['targets']
-            nlvr2_loss = F.cross_entropy(
-                answer_scores, targets, reduction='none')
-            return nlvr2_loss
+            return F.cross_entropy(answer_scores, targets, reduction='none')
         else:
             return answer_scores
 
@@ -100,9 +98,7 @@ class UniterForNlvr2Triplet(UniterPreTrainedModel):
 
         if compute_loss:
             targets = batch['targets']
-            nlvr2_loss = F.cross_entropy(
-                answer_scores, targets, reduction='none')
-            return nlvr2_loss
+            return F.cross_entropy(answer_scores, targets, reduction='none')
         else:
             return answer_scores
 
@@ -121,8 +117,7 @@ class AttentionPool(nn.Module):
             mask = mask.to(dtype=input_.dtype) * -1e4
             score = score + mask
         norm_score = self.dropout(F.softmax(score, dim=1))
-        output = norm_score.unsqueeze(1).matmul(input_).squeeze(1)
-        return output
+        return norm_score.unsqueeze(1).matmul(input_).squeeze(1)
 
 
 class UniterForNlvr2PairedAttn(UniterPreTrainedModel):
@@ -195,10 +190,7 @@ class UniterForNlvr2PairedAttn(UniterPreTrainedModel):
         answer_scores = self.nlvr2_output(
             torch.cat([left_out, right_out], dim=-1))
 
-        if compute_loss:
-            targets = batch['targets']
-            nlvr2_loss = F.cross_entropy(
-                answer_scores, targets, reduction='none')
-            return nlvr2_loss
-        else:
+        if not compute_loss:
             return answer_scores
+        targets = batch['targets']
+        return F.cross_entropy(answer_scores, targets, reduction='none')

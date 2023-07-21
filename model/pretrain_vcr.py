@@ -84,10 +84,9 @@ class UniterForPretrainingForVCR(UniterForPretraining):
         prediction_scores = self.cls(masked_output)
 
         if compute_loss:
-            masked_lm_loss = F.cross_entropy(prediction_scores,
-                                             txt_labels[txt_labels != -1],
-                                             reduction='none')
-            return masked_lm_loss
+            return F.cross_entropy(
+                prediction_scores, txt_labels[txt_labels != -1], reduction='none'
+            )
         else:
             return prediction_scores
 
@@ -109,9 +108,7 @@ class UniterForPretrainingForVCR(UniterForPretraining):
         prediction_feat = self.feat_regress(masked_output)
 
         if compute_loss:
-            mrfr_loss = F.mse_loss(prediction_feat, feat_targets,
-                                   reduction='none')
-            return mrfr_loss
+            return F.mse_loss(prediction_feat, feat_targets, reduction='none')
         else:
             return prediction_feat
 
@@ -136,14 +133,17 @@ class UniterForPretrainingForVCR(UniterForPretraining):
             if "kl" in task:
                 prediction_soft_label = F.log_softmax(
                     prediction_soft_label, dim=-1)
-                mrc_loss = F.kl_div(
-                    prediction_soft_label, label_targets, reduction='none')
+                return F.kl_div(
+                    prediction_soft_label, label_targets, reduction='none'
+                )
             else:
                 # background class should not be the target
                 label_targets = torch.max(label_targets[:, 1:], dim=-1)[1] + 1
-                mrc_loss = F.cross_entropy(
-                    prediction_soft_label, label_targets,
-                    ignore_index=0, reduction='none')
-            return mrc_loss
+                return F.cross_entropy(
+                    prediction_soft_label,
+                    label_targets,
+                    ignore_index=0,
+                    reduction='none',
+                )
         else:
             return prediction_soft_label

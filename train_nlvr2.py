@@ -59,14 +59,14 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.gradient_accumulation_steps < 1:
-        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, "
-                         "should be >= 1".format(
-                            opts.gradient_accumulation_steps))
+        raise ValueError(
+            f"Invalid gradient_accumulation_steps parameter: {opts.gradient_accumulation_steps}, should be >= 1"
+        )
 
     set_random_seed(opts.seed)
 
@@ -105,11 +105,7 @@ def main(opts):
                                         EvalDatasetCls, eval_collate_fn, opts)
 
     # Prepare model
-    if opts.checkpoint:
-        checkpoint = torch.load(opts.checkpoint)
-    else:
-        checkpoint = {}
-
+    checkpoint = torch.load(opts.checkpoint) if opts.checkpoint else {}
     model = ModelCls.from_pretrained(opts.model_config, state_dict=checkpoint,
                                      img_dim=IMG_DIM)
     model.init_type_embedding()
@@ -246,7 +242,7 @@ def validate(model, val_loader, split):
     n_ex = 0
     st = time()
     results = []
-    for i, batch in enumerate(val_loader):
+    for batch in val_loader:
         qids = batch['qids']
         targets = batch['targets']
         del batch['targets']
@@ -399,12 +395,13 @@ if __name__ == "__main__":
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     main(args)

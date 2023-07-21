@@ -42,17 +42,15 @@ class UniterForImageTextRetrieval(UniterPreTrainedModel):
         pooled_output = self.uniter.pooler(sequence_output)
         rank_scores = self.rank_output(pooled_output)
 
-        if compute_loss:
-            # triplet loss
-            rank_scores_sigmoid = torch.sigmoid(rank_scores)
-            sample_size = batch['sample_size']
-            scores = rank_scores_sigmoid.contiguous().view(-1, sample_size)
-            pos = scores[:, :1]
-            neg = scores[:, 1:]
-            rank_loss = torch.clamp(self.margin + neg - pos, 0)
-            return rank_loss
-        else:
+        if not compute_loss:
             return rank_scores
+        # triplet loss
+        rank_scores_sigmoid = torch.sigmoid(rank_scores)
+        sample_size = batch['sample_size']
+        scores = rank_scores_sigmoid.contiguous().view(-1, sample_size)
+        pos = scores[:, :1]
+        neg = scores[:, 1:]
+        return torch.clamp(self.margin + neg - pos, 0)
 
 
 class UniterForImageTextRetrievalHardNeg(UniterForImageTextRetrieval):

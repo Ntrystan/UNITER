@@ -42,26 +42,25 @@ NUM_SPECIAL_TOKENS = 81
 
 
 def build_dataloader(dataset, collate_fn, is_train, opts):
-    if is_train:
-        batch_size = opts.train_batch_size
-    else:
-        batch_size = opts.val_batch_size
+    batch_size = opts.train_batch_size if is_train else opts.val_batch_size
     sampler = TokenBucketSampler(dataset.lens, bucket_size=BUCKET_SIZE,
                                  batch_size=batch_size, droplast=is_train)
-    loader = DataLoader(dataset, batch_sampler=sampler,
-                        num_workers=opts.n_workers, pin_memory=opts.pin_mem,
-                        collate_fn=collate_fn)
-    return loader
+    return DataLoader(
+        dataset,
+        batch_sampler=sampler,
+        num_workers=opts.n_workers,
+        pin_memory=opts.pin_mem,
+        collate_fn=collate_fn,
+    )
 
 
 def build_mlm_dataset(txt_db, img_db_gt, img_db, is_train, opts):
+    collate_fn = mlm_collate_for_vcr
     if is_train:
-        collate_fn = mlm_collate_for_vcr
         datasets = [MlmDatasetForVCR(t, i_gt, i)
                     for t, i_gt, i in zip(txt_db, img_db_gt, img_db)]
         dataset = ConcatDatasetWithLens(datasets)
     else:
-        collate_fn = mlm_collate_for_vcr
         dataset = MlmDatasetForVCR(txt_db, img_db_gt, img_db)
 
     return dataset, collate_fn
@@ -180,14 +179,14 @@ def main(opts):
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
     opts.rank = rank
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.gradient_accumulation_steps < 1:
-        raise ValueError("Invalid gradient_accumulation_steps parameter: {}, "
-                         "should be >= 1".format(
-                            opts.gradient_accumulation_steps))
+        raise ValueError(
+            f"Invalid gradient_accumulation_steps parameter: {opts.gradient_accumulation_steps}, should be >= 1"
+        )
 
     set_random_seed(opts.seed)
 
@@ -220,10 +219,7 @@ def main(opts):
     meta_loader = PrefetchLoader(meta_loader)
 
     # Prepare model
-    if opts.checkpoint:
-        checkpoint = torch.load(opts.checkpoint)
-    else:
-        checkpoint = {}
+    checkpoint = torch.load(opts.checkpoint) if opts.checkpoint else {}
     model = UniterForPretrainingForVCR.from_pretrained(
         opts.model_config, checkpoint,
         img_dim=IMG_DIM, img_label_dim=IMG_LABEL_DIM)
@@ -368,7 +364,7 @@ def validate_mlm(model, val_loader):
     n_correct = 0
     n_word = 0
     st = time()
-    for i, batch in enumerate(val_loader):
+    for batch in val_loader:
         scores = model(batch, task='mlm', compute_loss=False)
         labels = batch['txt_labels']
         labels = labels[labels != -1]
@@ -393,8 +389,7 @@ def validate_mlm(model, val_loader):
 def accuracy_count(out, labels):
     outputs = out.max(dim=-1)[1]
     mask = labels != -1
-    n_correct = (outputs == labels).masked_select(mask).sum().item()
-    return n_correct
+    return (outputs == labels).masked_select(mask).sum().item()
 
 
 @torch.no_grad()
@@ -403,7 +398,7 @@ def validate_mrfr(model, val_loader):
     val_loss = 0
     n_feat = 0
     st = time()
-    for i, batch in enumerate(val_loader):
+    for batch in val_loader:
         loss = model(batch, task='mrfr', compute_loss=True)
         val_loss += loss.sum().item() / IMG_DIM
         n_feat += batch['img_mask_tgt'].sum().item()
@@ -463,8 +458,7 @@ def validate_mrc(model, val_loader, task):
 def compute_accuracy_for_soft_targets(out, labels):
     outputs = out.max(dim=-1)[1]
     labels = labels.max(dim=-1)[1]  # argmax
-    n_correct = (outputs == labels).sum().item()
-    return n_correct
+    return (outputs == labels).sum().item()
 
 
 if __name__ == "__main__":
@@ -548,13 +542,14 @@ if __name__ == "__main__":
     args = parse_with_config(parser)
 
     if exists(args.output_dir) and os.listdir(args.output_dir):
-        raise ValueError("Output directory ({}) already exists and is not "
-                         "empty.".format(args.output_dir))
+        raise ValueError(
+            f"Output directory ({args.output_dir}) already exists and is not empty."
+        )
 
     # options safe guard
     if args.conf_th == -1:
-        assert args.max_bb + args.max_txt_len + 2 <= 512
+        assert args.max_bb + args.max_txt_len <= 510
     else:
-        assert args.num_bb + args.max_txt_len + 2 <= 512
+        assert args.num_bb + args.max_txt_len <= 510
 
     main(args)

@@ -75,12 +75,11 @@ def main(opts):
     split = basename(opts.img_dir)
     if opts.keep_all:
         db_name = 'all'
+    elif opts.conf_th == -1:
+        db_name = f'feat_numbb{opts.num_bb}'
     else:
-        if opts.conf_th == -1:
-            db_name = f'feat_numbb{opts.num_bb}'
-        else:
-            db_name = (f'feat_th{opts.conf_th}_max{opts.max_bb}'
-                       f'_min{opts.min_bb}')
+        db_name = (f'feat_th{opts.conf_th}_max{opts.max_bb}'
+                   f'_min{opts.min_bb}')
     if opts.compress:
         db_name += '_compressed'
     if not exists(f'{opts.output}/{split}'):

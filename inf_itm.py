@@ -34,9 +34,9 @@ def main(opts):
     device = torch.device("cuda", hvd.local_rank())
     torch.cuda.set_device(hvd.local_rank())
     rank = hvd.rank()
-    LOGGER.info("device: {} n_gpu: {}, rank: {}, "
-                "16-bits training: {}".format(
-                    device, n_gpu, hvd.rank(), opts.fp16))
+    LOGGER.info(
+        f"device: {device} n_gpu: {n_gpu}, rank: {hvd.rank()}, 16-bits training: {opts.fp16}"
+    )
 
     if opts.train_config is not None:
         train_opts = Struct(json.load(open(opts.train_config)))
@@ -79,7 +79,7 @@ def main(opts):
             pickle.dump(results, f)
         with open(f'{opts.output_dir}/scores.json', 'w') as f:
             json.dump(eval_log, f)
-        LOGGER.info(f'evaluation finished')
+        LOGGER.info('evaluation finished')
         LOGGER.info(
             f"======================== Results =========================\n"
             f"image retrieval R1: {eval_log['img_r1']*100:.2f},\n"

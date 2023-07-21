@@ -48,11 +48,7 @@ class Nlvr2PairedDataset(DetectFeatTxtTokDataset):
             attn_masks = [1] * (len(input_ids) + num_bb)
             input_ids = torch.tensor(input_ids)
             attn_masks = torch.tensor(attn_masks)
-            if self.use_img_type:
-                img_type_ids = torch.tensor([i+1]*num_bb)
-            else:
-                img_type_ids = None
-
+            img_type_ids = torch.tensor([i+1]*num_bb) if self.use_img_type else None
             outs.append((input_ids, img_feat, img_pos_feat,
                          attn_masks, img_type_ids))
         return tuple(outs), target
@@ -84,15 +80,16 @@ def nlvr2_paired_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'img_type_ids': img_type_ids,
-             'targets': targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'img_type_ids': img_type_ids,
+        'targets': targets,
+    }
 
 
 class Nlvr2PairedEvalDataset(Nlvr2PairedDataset):
@@ -147,11 +144,7 @@ class Nlvr2TripletDataset(DetectFeatTxtTokDataset):
                 img_type_ids.extend([i+1]*nbb)
         img_feat = torch.cat(img_feats, dim=0)
         img_pos_feat = torch.cat(img_pos_feats, dim=0)
-        if self.use_img_type:
-            img_type_ids = torch.tensor(img_type_ids)
-        else:
-            img_type_ids = None
-
+        img_type_ids = torch.tensor(img_type_ids) if self.use_img_type else None
         # text input
         input_ids = copy.deepcopy(example['input_ids'])
 
@@ -190,15 +183,16 @@ def nlvr2_triplet_collate(inputs):
     out_size = attn_masks.size(1)
     gather_index = get_gather_index(txt_lens, num_bbs, bs, max_tl, out_size)
 
-    batch = {'input_ids': input_ids,
-             'position_ids': position_ids,
-             'img_feat': img_feat,
-             'img_pos_feat': img_pos_feat,
-             'attn_masks': attn_masks,
-             'gather_index': gather_index,
-             'img_type_ids': img_type_ids,
-             'targets': targets}
-    return batch
+    return {
+        'input_ids': input_ids,
+        'position_ids': position_ids,
+        'img_feat': img_feat,
+        'img_pos_feat': img_pos_feat,
+        'attn_masks': attn_masks,
+        'gather_index': gather_index,
+        'img_type_ids': img_type_ids,
+        'targets': targets,
+    }
 
 
 class Nlvr2TripletEvalDataset(Nlvr2TripletDataset):
